@@ -58,7 +58,7 @@ int encode(char *msg, char *key)
 
 int main(int argc, char *argv[])
 {
-    int connectionSocket, charsRead;
+    int connectionSocket, charsRead, pid;
     char buffer[256];
     struct sockaddr_in serverAddress, clientAddress;
     socklen_t sizeOfClientInfo = sizeof(clientAddress);
@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
         error("ERROR on binding");
     }
 
-    // Start listening for connetions. Allow up to 5 connections to queue up
+    // Start listening for connections. Allow up to 5 connections to queue up
     listen(listenSocket, 5);
 
     // Accept a connection, blocking if one is not available until one connects
@@ -103,35 +103,47 @@ int main(int argc, char *argv[])
             error("ERROR on accept");
         }
 
-        printf("SERVER: Connected to client running at host %d port %d\n",
-               ntohs(clientAddress.sin_addr.s_addr),
-               ntohs(clientAddress.sin_port));
-
-        // Get the message from the client and display it
-        memset(buffer, '\0', 256);
-        // Read the client's message from the socket
-        charsRead = recv(connectionSocket, buffer, 255, 0);
-        if (charsRead < 0)
+        // fork into a child process to handle the connection and a parent process to keep listening
+        pid = fork();
+        if (pid < 0) // error
         {
-            error("ERROR reading from socket");
+            error("fork() failed!");
         }
-        
-        // Get the key from the client and display it
-
-        // Mutate the message array with the key
-        //encode(buffer, key);
-        
-        printf("SERVER: I received this from the client: \"%s\"\n", buffer);
-
-        // Send a Success message back to the client
-        charsRead = send(connectionSocket,
-                         "I am the server, and I got your message", 39, 0);
-        if (charsRead < 0)
+        else if (pid == 0) // child. handle connection.
         {
-            error("ERROR writing to socket");
+            printf("SERVER: Connected to client running at host %d port %d\n",
+                   ntohs(clientAddress.sin_addr.s_addr),
+                   ntohs(clientAddress.sin_port));
+
+            // Get the message from the client and display it
+            memset(buffer, '\0', 256);
+            // Read the client's message from the socket
+            charsRead = recv(connectionSocket, buffer, 255, 0);
+            if (charsRead < 0)
+            {
+                error("ERROR reading from socket");
+            }
+
+            // Get the key from the client and display it
+
+            // Mutate the message array with the key
+            //encode(buffer, key);
+
+            printf("SERVER: I received this from the client: \"%s\"\n", buffer);
+
+            // Send a Success message back to the client
+            charsRead = send(connectionSocket,
+                             "I am the server, and I got your message", 39, 0);
+            if (charsRead < 0)
+            {
+                error("ERROR writing to socket");
+            }
+            // Close the connection socket for this client
+            close(connectionSocket);
         }
-        // Close the connection socket for this client
-        close(connectionSocket);
+        else // parent. keep listening.
+        {
+        }
     }
     // Close the listening socket
     close(listenSocket);

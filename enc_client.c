@@ -152,7 +152,7 @@ int main(int argc, char *argv[])
     i--;
   }
 
-  printf("%s\n", buf);
+  //printf("%s\n", buf);
 
   // Create a socket
   socketFD = socket(AF_INET, SOCK_STREAM, 0);
@@ -170,18 +170,6 @@ int main(int argc, char *argv[])
     error("CLIENT: ERROR connecting");
   }
 
-  /*
-  // This was the old code for getting cmd line input. We are changing it to read from a file instead of cmd line.
-  // Get input message from user
-  printf("CLIENT: Enter text to send to the server, and then hit enter: ");
-  // Clear out the buffer array
-  memset(buf, '\0', sizeof(buf));
-  // Get input from the user, trunc to buffer - 1 chars, leaving \0
-  fgets(buf, sizeof(buf) - 1, stdin);
-  // Remove the trailing \n that fgets adds
-  buf[strcspn(buf, "\n")] = '\0'; 
-  */
-
   // Write to the server
   charsWritten = send(socketFD, buf, strlen(buf), 0);
   if (charsWritten < 0)
@@ -195,9 +183,9 @@ int main(int argc, char *argv[])
 
   // Get return message from server
   // Clear out the buffer again for reuse
-  memset(buf, '\0', sizeof(buf));
+  memset(buf, '\0', buf_size);
   // Read data from the socket, leaving \0 at end
-  charsRead = recv(socketFD, buf, sizeof(buf) - 1, 0);
+  charsRead = recv(socketFD, buf, buf_size - 1, 0);
   if (charsRead < 0)
   {
     error("CLIENT: ERROR reading from socket");
