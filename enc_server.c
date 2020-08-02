@@ -115,7 +115,12 @@ int main(int argc, char *argv[])
         {
             error("ERROR reading from socket");
         }
+        
+        // Get the key from the client and display it
+
+        // Mutate the message array with the key
         //encode(buffer, key);
+        
         printf("SERVER: I received this from the client: \"%s\"\n", buffer);
 
         // Send a Success message back to the client
