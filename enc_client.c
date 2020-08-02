@@ -61,7 +61,7 @@ void setupAddressStruct(struct sockaddr_in *address,
 // args: plaintext key port
 int main(int argc, char *argv[])
 {
-  int socketFD, portNumber, charsWritten, charsRead, i, ch;
+  int socketFD, charsWritten, charsRead, i, ch;
   struct sockaddr_in serverAddress;
   FILE *fp;
   int buf_size = 256;
@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
   while (1)
   {
     ch = getc(fp);
-    if (ch == EOF)
+    if (ch == '\n' || ch == EOF)
     {
       break;
     }
@@ -97,12 +97,22 @@ int main(int argc, char *argv[])
       buf = realloc(buf, buf_size);
       if (buf == NULL)
       {
-        printf("error, out of memory!\n");
-        exit(1);
+        error("out of memory!");
+        exit(0);
       }
+    } 
+    // validate character
+    if ((ch > 64 && ch < 91) || (ch == 32)) // from A-Z or a space
+    {
+      buf[i] = ch;
+      i++;
     }
-    buf[i] = ch;
-    i++;
+    else
+    {
+      printf("character %c in file %s was invalid.\n", ch, argv[1]);
+      error("invalid character input! Exiting...");
+      exit(0);
+    }
   }
 
   // Remove trailing newline, if present
@@ -114,8 +124,8 @@ int main(int argc, char *argv[])
 
   // Insert divider
   buf[i] = '$';
-
   i++;
+
   // Get FILE pointer to key file
   fp = fopen(argv[2], "r");
   if (fp == NULL)
@@ -125,6 +135,37 @@ int main(int argc, char *argv[])
   }
 
   // Read key into buffer
+  while (1)
+  {
+    ch = getc(fp);
+    if (ch == '\n' || ch == EOF)
+    {
+      break;
+    }
+    if (i > buf_size - 2)
+    {
+      buf_size *= 2;
+      buf = realloc(buf, buf_size);
+      if (buf == NULL)
+      {
+        error("out of memory!");
+        exit(0);
+      }
+    }
+    // validate character
+    if ((ch > 64 && ch < 91) || (ch == 32)) // from A-Z or a space
+    {
+      buf[i] = ch;
+      i++;
+    }
+    else
+    {
+      printf("character %c in file %s was invalid.\n", ch, argv[2]);
+      error("invalid character input! Exiting...");
+      exit(0);
+    }
+  }
+
   while ((ch = getc(fp)) != EOF)
   {
     if (i < buf_size - 1)
@@ -139,7 +180,7 @@ int main(int argc, char *argv[])
       if (buf == NULL)
       {
         printf("error, out of memory!\n");
-        exit(1);
+        exit(0);
       }
     }
   }

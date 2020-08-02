@@ -7,12 +7,12 @@ run: keygen.c enc_client.c enc_server.c
 	make compile
 	keygen
 
-mem: keygen.c
+mem: enc_client.c
 	valgrind --leak-check=full \
 	--show-leak-kinds=all \
     --track-origins=yes \
     --verbose \
     --log-file=valgrind-out.txt \
-    ./keygen keygen_valgrind
+    ./enc_client enc_client_valgrind
 
 server: enc_server.c

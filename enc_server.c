@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
         {
             error("fork() failed!");
         }
-        else if (pid == 0) // child. handle connection.
+        else if (pid > 0) // child. handle connection.
         {
             printf("SERVER: Connected to client running at host %d port %d\n",
                    ntohs(clientAddress.sin_addr.s_addr),
@@ -140,9 +140,7 @@ int main(int argc, char *argv[])
             }
             // Close the connection socket for this client
             close(connectionSocket);
-        }
-        else // parent. keep listening.
-        {
+            return 0;
         }
     }
     // Close the listening socket
