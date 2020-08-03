@@ -24,25 +24,6 @@ Assignment 3
 * 3. Print the message received from the server and exit the program.
 */
 
-// function to send strings in chunks. Credit: https://stackoverflow.com/questions/39110113/second-recv-call-doesnt-receive-data-halts-the-execution-in-c
-int sendstring(int sock, const char *str)
-{
-  if (!str)
-    str = "";
-  int len = strlen(str) + 1;
-
-  do
-  {
-    int ret = send(sock, str, len, 0);
-    if (ret <= 0)
-      return -1;
-    str += ret;
-    len -= ret;
-  } while (len > 0);
-
-  return 0;
-}
-
 // Error function used for reporting issues
 void error(const char *msg)
 {
@@ -103,7 +84,7 @@ int main(int argc, char *argv[])
     exit(0);
   }
 
-  // Read plaintext msg into buf
+  // Read plaintext msg into buffer
   i = 0;
   while (1)
   {
@@ -157,7 +138,7 @@ int main(int argc, char *argv[])
     exit(0);
   }
 
-  // Read key into buf
+  // Read key into buffer
   while (1)
   {
     ch = getc(fp);
@@ -190,7 +171,6 @@ int main(int argc, char *argv[])
     }
   }
 
-  // add key to buffer
   while ((ch = getc(fp)) != EOF)
   {
     if (i < buf_size - 1)
@@ -242,16 +222,8 @@ int main(int argc, char *argv[])
     error("CLIENT: ERROR connecting");
   }
 
-  ///////////// Write message length to the server
+  // Write message length to the server
   int msg_len = i;
-  int sent_msg_len = write(socketFD, &msg_len, 1);
-  if (sent_msg_len < 0)
-  {
-    close(socketFD);
-    free(buf);
-    error("CLIENT: ERROR sending msg_len");
-  }
-  /*
   printf("CLIENT: msg_len = %d, strlen(buf) = %d\n", msg_len, strlen(buf));
   int len_written = send(socketFD, &msg_len, sizeof(msg_len), 0);
   if (len_written < 0)
@@ -266,33 +238,59 @@ int main(int argc, char *argv[])
     free(buf);
     error("CLIENT: ERROR writing full msg_len to socket");
   }
-  printf("CLIENT: msg_len sent successfully\n");
-  printf("CLIENT: sending buf, which is: %s\nand strlen(buf) = %d\n", buf, strlen(buf));
-*/
-  ////////////////// Write message to the server
-  sendstring(socketFD, buf);
-  /*
-  charsWritten = send(socketFD, &buf, (size_t)msg_len, 0);
-  if (charsWritten < 0)
+  else
   {
-    close(socketFD);
-    free(buf);
-    error("CLIENT: ERROR writing msg to socket");
-  }
-  printf("CLIENT: charsWritten = %d. Wrote everything. Listening for response...\n", charsWritten);
-  */
+    printf("CLIENT: msg_len sent successfully\n");
 
-  // Get return message from server
-  // Clear out the buf again for reuse
-  memset(buf, '\0', buf_size);
-  // Read data from the socket, leaving \0 at end
-  charsRead = recv(socketFD, buf, buf_size - 1, 0);
-  if (charsRead < 0)
-  {
-    error("CLIENT: ERROR reading from socket");
-  }
-  printf("CLIENT: I received this from the server: \"%s\"\n", buf);
+    // Write message to the server, breaking it into chunks of 1000 or less
+    int chunk_size = 5;
+    int written = 0;
+    int loopcount = 0;
+    while (written < msg_len)
+    {
+      printf("CLIENT: written = %d, msg_len = %d\n", written, msg_len);
+      if (msg_len > chunk_size)
+      {
+        printf("CLIENT: msg_len > chunk_size.\n");
+        charsWritten = send(socketFD, buf + written, chunk_size, 0);
+        if (charsWritten < chunkSize)
+        {
+          
+        }
+      }
+      else
+      {
+        printf("CLIENT: msg_len <= chunk_size.\n");
+        charsWritten = send(socketFD, buf + written, msg_len, 0);
+      }
+      printf("CLIENT: charsWritten = %d\n", charsWritten);
+      if (charsWritten < 0)
+      {
+        close(socketFD);
+        free(buf);
+        error("CLIENT: ERROR writing msg to socket");
+      }
+      written += charsWritten;
 
+      loopcount++;
+      if (loopcount > 500)
+      {
+        printf("CLIENT: looped more than 500 times, probably endless\n");
+        break;
+      }
+    }
+    printf("CLIENT: wrote everything.\n");
+    // Get return message from server
+    // Clear out the buffer again for reuse
+    memset(buf, '\0', buf_size);
+    // Read data from the socket, leaving \0 at end
+    charsRead = recv(socketFD, buf, buf_size - 1, 0);
+    if (charsRead < 0)
+    {
+      error("CLIENT: ERROR reading from socket");
+    }
+    printf("CLIENT: I received this from the server: \"%s\"\n", buf);
+  }
   // Close the socket
   close(socketFD);
   free(buf);

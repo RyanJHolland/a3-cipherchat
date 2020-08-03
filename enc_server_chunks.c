@@ -6,7 +6,6 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-
 // Error function used for reporting issues
 void error(const char *msg)
 {
@@ -119,67 +118,94 @@ int main(int argc, char *argv[])
             printf("SERVER: Connected to client running at host %d port %d\n",
                    ntohs(clientAddress.sin_addr.s_addr),
                    ntohs(clientAddress.sin_port));
+            /*
+            // Get an int with the length of the message
+            char msg_len_char = '\0';
+            int lenRead = recv(connectionSocket, &msg_len_char, sizeof(char), 0);
+            if (lenRead < 0)
+            {
+                close(connectionSocket);
+                error("SERVER: Error reading msg length from socket");
+            }
+            printf("SERVER: lenRead = %d, msg_len_char: %c", lenRead, msg_len_char);
+            int msg_len = atoi(msg_len_char);
+            printf("SERVER: msg_len: %d", msg_len);
+*/
 
             // GET MESSAGE LENGTH ///////////////////////////
-            char *msg_len_buf = '\0';
+            char *msg_len_buf = (char *)malloc(1);
+            if (msg_len_buf == NULL)
+            {
+                close(connectionSocket);
+                printf("SERVER: msg_len_buf: %s", msg_len_buf);
+                error("SERVER: Unable to allocate memory for msg_len_buf.");
+            }
 
-            // Read the client's message SIZE from the socket
+            // Get the message length from the client and display it
+            memset(msg_len_buf, '\0', 1);
+
+            // Read the client's message from the socket
             charsRead = recv(connectionSocket, msg_len_buf, 1, 0);
             if (charsRead < 0)
             {
-                free(msg_len_buf);
                 close(connectionSocket);
                 error("SERVER: ERROR reading to msg_len_buf from socket");
             }
-            
-            printf("SERVER: msg_len_buf = %s\n", msg_len_buf);
+            printf("msg_len_buf = %s\n", msg_len_buf);
             int msg_len = (int)msg_len_buf[0];
-            printf("SERVER: msg_len = %d\n", msg_len);
+            printf("msg_len = %d\n", msg_len);
 
             // GET MESSAGE ///////////////////////////
-            // Allocate a buf of the anticipated size of the message
-            char *msg_buf = (char *)malloc(msg_len);
-            if (msg_buf == NULL)
+            // Allocate a buffer of the anticipated size of the message
+            char *buf;
+            buf = (char *)malloc(msg_len);
+            if (buf == NULL)
             {
-                free(msg_len_buf);
                 close(connectionSocket);
                 printf("SERVER: msg_len: %d", msg_len);
-                error("SERVER: Unable to allocate memory for message. Client probably requested too large of a buf.");
+                error("SERVER: Unable to allocate memory for message. Client probably requested too large of a buffer.");
             }
 
             // Get the message from the client and display it
-            memset(msg_buf, '\0', msg_len);
-            printf("SERVER: msg_buf = %s\n", msg_buf);
-
-            // Read the client's message from the socket
-            charsRead = recv(connectionSocket, msg_buf, msg_len, 0);
-            if (charsRead < 0)
+            memset(buf, '\0', msg_len);
+            printf("SERVER: buf = %s\n", buf);
+            int received = 0;
+            int loopcount = 0;
+            while (received < msg_len)
             {
-                free(msg_len_buf);
-                free(msg_buf);
-                close(connectionSocket);
-                error("SERVER: ERROR reading from socket");
+                printf("SERVER: buf = %s, received = %d, msg_len = %d\n", buf, received, msg_len);
+                // Read the client's message from the socket
+                charsRead = recv(connectionSocket, buf + received, msg_len, 0);
+                if (charsRead < 0)
+                {
+                    close(connectionSocket);
+                    error("SERVER: ERROR reading from socket");
+                }
+                received += charsRead;
+                loopcount++;
+                if (loopcount > 500)
+                {
+                    printf("SERVER: looped more than 500 times, probably endless\n");
+                    break;
+                }
             }
-            printf("SERVER: charsRead = %d, msg_buf = %s\n", charsRead, msg_buf);
+            printf("SERVER: got it all\n");
+            printf("SERVER: buf = %s\n", buf);
 
             // Mutate the message array with the key
-            //encode(msg_buf, key);
+            //encode(buf, key);
 
-            printf("SERVER: I received this from the client: \"%s\"\n", msg_buf);
+            printf("SERVER: I received this from the client: \"%s\"\n", buf);
 
             // Send a Success message back to the client
             charsRead = send(connectionSocket,
                              "I am the server, and I got your message", 39, 0);
             if (charsRead < 0)
             {
-                free(msg_len_buf);
-                free(msg_buf);
                 close(connectionSocket);
                 error("ERROR writing to socket");
             }
             // Close the connection socket for this client
-            free(msg_len_buf);
-            free(msg_buf);
             close(connectionSocket);
             return 0;
         }

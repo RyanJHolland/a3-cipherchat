@@ -16,3 +16,8 @@ mem: enc_client.c
     ./enc_client enc_client_valgrind
 
 server: enc_server.c
+
+def_compile: keygen.c default_enc_client.c default_enc_server.c
+	gcc -g -lm -Wall -std=c99 keygen.c -o keygen
+	gcc -g -lm -Wall -std=c99 default_enc_client.c -o default_enc_client
+	gcc -g -lm -Wall -std=c99 default_enc_server.c -o default_enc_server
