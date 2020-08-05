@@ -1,11 +1,17 @@
-compile: keygen.c enc_client.c enc_server.c
-	gcc -g -lm -Wall -std=c99 keygen.c -o keygen
-	gcc -g -lm -Wall -std=c99 enc_client.c -o enc_client
-	gcc -g -lm -Wall -std=c99 enc_server.c -o enc_server
 
 run: keygen.c enc_client.c enc_server.c
 	make compile
-	keygen
+	enc_server 14141 &
+	enc_client cipher key 14141
+	dec_server 14142 &
+	dec_client cipher key 14142
+	
+compile: keygen.c enc_client.c enc_server.c dec_client.c dec_server.c
+	gcc -g -lm -Wall -std=c99 keygen.c -o keygen
+	gcc -g -lm -Wall -std=c99 enc_client.c -o enc_client
+	gcc -g -lm -Wall -std=c99 enc_server.c -o enc_server
+	gcc -g -lm -Wall -std=c99 dec_client.c -o dec_client
+	gcc -g -lm -Wall -std=c99 dec_server.c -o dec_server
 
 mem: enc_client.c
 	valgrind --leak-check=full \

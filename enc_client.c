@@ -77,16 +77,18 @@ void setupAddressStruct(struct sockaddr_in *address,
          hostInfo->h_length);
 }
 
-// args: plaintext key port
+///////////////////////////////////////
+//              MAIN                //
+/////////////////////////////////////
 int main(int argc, char *argv[])
 {
-  int socketFD, charsWritten, charsRead, i, ch;
+  int socketFD, charsRead, i, ch;
   struct sockaddr_in serverAddress;
   FILE *fp;
   int buf_size = 256;
   char *buf = malloc(buf_size);
 
-  // Check usage & args
+  // Validate cmd line args
   if (argc < 4)
   {
     free(buf);
@@ -94,6 +96,7 @@ int main(int argc, char *argv[])
     exit(0);
   }
 
+  ///////////// READ MESSAGE FILE /////////////
   // Get FILE pointer to plaintext message file
   fp = fopen(argv[1], "r");
   if (fp == NULL)
@@ -104,6 +107,7 @@ int main(int argc, char *argv[])
   }
 
   // Read plaintext msg into buf
+  int msg_size = 0;
   i = 0;
   while (1)
   {
@@ -128,6 +132,7 @@ int main(int argc, char *argv[])
     {
       buf[i] = ch;
       i++;
+      msg_size++;
     }
     else
     {
@@ -149,6 +154,7 @@ int main(int argc, char *argv[])
   buf[i] = '$';
   i++;
 
+  ///////////// READ KEY FILE /////////////
   // Get FILE pointer to key file
   fp = fopen(argv[2], "r");
   if (fp == NULL)
@@ -157,7 +163,8 @@ int main(int argc, char *argv[])
     exit(0);
   }
 
-  // Read key into buf
+  // Read key into buf -- also record its size
+  int key_size = 0;
   while (1)
   {
     ch = getc(fp);
@@ -171,8 +178,7 @@ int main(int argc, char *argv[])
       buf = realloc(buf, buf_size);
       if (buf == NULL)
       {
-        error("out of memory!");
-        exit(0);
+        error("CLIENT: out of memory!");
       }
     }
     // validate character
@@ -180,37 +186,15 @@ int main(int argc, char *argv[])
     {
       buf[i] = ch;
       i++;
+      key_size++;
     }
     else
     {
       free(buf);
-      printf("character %c in file %s was invalid.\n", ch, argv[2]);
-      error("invalid character input! Exiting...");
-      exit(0);
+      printf("CLIENT: character %c in file %s was invalid.\n", ch, argv[2]);
+      error("CLIENT: invalid character input! Exiting...");
     }
   }
-
-  // add key to buffer
-  while ((ch = getc(fp)) != EOF)
-  {
-    if (i < buf_size - 1)
-    {
-      buf[i] = ch;
-      i++;
-    }
-    else
-    {
-      buf_size *= 2;
-      buf = realloc(buf, buf_size);
-      if (buf == NULL)
-      {
-        free(buf);
-        printf("error, out of memory!\n");
-        exit(0);
-      }
-    }
-  }
-  buf[i] = '\0';
 
   // Remove trailing newline, if present
   if (buf[i - 1] == '\n')
@@ -218,17 +202,28 @@ int main(int argc, char *argv[])
     buf[i - 1] = '\0';
     i--;
   }
+  else
+  {
+    buf[i] = '\0';
+  }
 
+  if (key_size < msg_size)
+  {
+    free(buf);
+    printf("CLIENT: Error: key %s is too short\n", argv[2]);
+    error("CLIENT: Exiting...");
+  }
   //printf("%s\n", buf);
 
-  // SEND TO SERVER /////////////
+  ////////////// SEND TO SERVER /////////////
 
-  // Create a socket
+  //////////// Create a socket
   socketFD = socket(AF_INET, SOCK_STREAM, 0);
   if (socketFD < 0)
   {
     free(buf);
-    error("CLIENT: ERROR opening socket");
+    perror("CLIENT: ERROR opening socket");
+    exit(2);
   }
 
   // Set up the server address struct
@@ -239,11 +234,47 @@ int main(int argc, char *argv[])
   {
     close(socketFD);
     free(buf);
-    error("CLIENT: ERROR connecting");
+    perror("CLIENT: ERROR connecting to enc_server");
+    exit(2);
   }
 
-  ///////////// Write message length to the server
+  /////////////// Write introduction to server  (tell server which client this is)
+  /*
+  int intro = sendstring(socketFD, "enc_client");
+  printf("CLIENT: intro = %d\n", intro);
+  if (intro < 0)
+  {
+    close(socketFD);
+    free(buf);
+    perror("CLIENT: ERROR introducing self to server");
+    exit(2);
+  }
+  // Listen for confirmation
+  int confirmation = -1;
+  int correct_server = -1;
+  confirmation = recv(socketFD, &correct_server, sizeof(int), 0);
+  //printf("CLIENT: confirmation = %d\n", confirmation);
+  //printf("CLIENT: correct_server = %d\n", correct_server);
+  if (confirmation < 1)
+  {
+    close(socketFD);
+    free(buf);
+    perror("CLIENT: ERROR, getting no response to intro from server");
+    exit(2);
+  }
+  else if (correct_server != -255)
+  {
+    close(socketFD);
+    free(buf);
+    printf("correct_server = %d\n", correct_server);
+    perror("CLIENT: ERROR, not connecting to the right server");
+    exit(2);
+  }
+  //printf("%s\n", buf);
+*/
+  /////////////// Write message length to the server
   int msg_len = i;
+  //printf("CLIENT: sending msg_len, which is: %d\n", msg_len);
   int sent_msg_len = write(socketFD, &msg_len, 1);
   if (sent_msg_len < 0)
   {
@@ -251,38 +282,12 @@ int main(int argc, char *argv[])
     free(buf);
     error("CLIENT: ERROR sending msg_len");
   }
-  /*
-  printf("CLIENT: msg_len = %d, strlen(buf) = %d\n", msg_len, strlen(buf));
-  int len_written = send(socketFD, &msg_len, sizeof(msg_len), 0);
-  if (len_written < 0)
-  {
-    close(socketFD);
-    free(buf);
-    error("CLIENT: ERROR writing msg_len to socket");
-  }
-  else if (len_written < 1)
-  {
-    close(socketFD);
-    free(buf);
-    error("CLIENT: ERROR writing full msg_len to socket");
-  }
-  printf("CLIENT: msg_len sent successfully\n");
-  printf("CLIENT: sending buf, which is: %s\nand strlen(buf) = %d\n", buf, strlen(buf));
-*/
-  ////////////////// Write message to the server
-  sendstring(socketFD, buf);
-  /*
-  charsWritten = send(socketFD, &buf, (size_t)msg_len, 0);
-  if (charsWritten < 0)
-  {
-    close(socketFD);
-    free(buf);
-    error("CLIENT: ERROR writing msg to socket");
-  }
-  printf("CLIENT: charsWritten = %d. Wrote everything. Listening for response...\n", charsWritten);
-  */
 
-  // Get return message from server
+  /////////////// Write message to the server
+  //printf("CLIENT: sending buf\n");
+  sendstring(socketFD, buf);
+
+  /////////////// Get return message from server
   // Clear out the buf again for reuse
   memset(buf, '\0', buf_size);
   // Read data from the socket, leaving \0 at end
@@ -291,9 +296,9 @@ int main(int argc, char *argv[])
   {
     error("CLIENT: ERROR reading from socket");
   }
-  printf("CLIENT: I received this from the server: \"%s\"\n", buf);
+  printf("%s\n", buf);
 
-  // Close the socket
+  /////////////// Close the socket
   close(socketFD);
   free(buf);
   return 0;
